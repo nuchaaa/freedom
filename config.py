@@ -12,7 +12,7 @@ def _detect_backend() -> str:
     try:
         importlib.import_module("lightgbm")
         return "lightgbm"
-    except ImportError:
+    except Exception:
         return "sklearn"
 
 MODEL_BACKEND = _detect_backend()
