@@ -347,16 +347,17 @@ def generate_synthetic_real_format(n_policies=50_000, n_drivers=80_000, seed=RAN
 # 7. ПОЛНЫЙ PIPELINE ПОДГОТОВКИ
 # ═══════════════════════════════════════════════════════════════════════
 
-def prepare_dataset(path: Optional[str] = None) -> Tuple[pd.DataFrame, WoETransformer, list]:
+def prepare_dataset(path: Optional[str] = None, woe_transformer: Optional[WoETransformer] = None) -> Tuple[pd.DataFrame, WoETransformer, list]:
     """
     Полный пайплайн: загрузка → агрегация → FE → WoE.
 
     Args:
         path: путь к CSV/parquet. Если None — генерирует синтетику.
+        woe_transformer: уже обученный трансформер (для test-данных).
 
     Returns:
         df: агрегированный DataFrame на уровне полисов
-        woe: обученный WoE-трансформер
+        woe: обученный/примененный WoE-трансформер
         feature_cols: список признаков для моделирования
     """
     if path:
@@ -372,14 +373,20 @@ def prepare_dataset(path: Optional[str] = None) -> Tuple[pd.DataFrame, WoETransf
     df = aggregate_to_policy(raw_df)
     df = create_features(df)
 
-    # WoE на доступных бакетах
-    available_woe = [f for f in WOE_FEATURES if f in df.columns]
-    woe = WoETransformer(features=available_woe)
-    df = woe.fit_transform(df)
+    # WoE трансформация
+    if woe_transformer is None:
+        available_woe = [f for f in WOE_FEATURES if f in df.columns]
+        woe_transformer = WoETransformer(features=available_woe)
+        df = woe_transformer.fit_transform(df)
+    else:
+        df = woe_transformer.transform(df)
 
     feature_cols = get_feature_columns(df)
 
     print(f"\n[READY] Финальный датасет: {df.shape[0]:,} полисов × {df.shape[1]} столбцов")
-    print(f"[READY] Claim Rate: {df[COL_IS_CLAIM].mean():.2%}")
-    print(f"[READY] Ср. премия: {df[COL_PREMIUM].mean():,.0f} ₸")
-    return df, woe, feature_cols
+    if COL_IS_CLAIM in df.columns:
+        print(f"[READY] Claim Rate: {df[COL_IS_CLAIM].mean():.2%}")
+    if COL_PREMIUM in df.columns:
+        print(f"[READY] Ср. премия: {df[COL_PREMIUM].mean():,.0f} ₸")
+        
+    return df, woe_transformer, feature_cols

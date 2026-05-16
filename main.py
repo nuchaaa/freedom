@@ -60,7 +60,7 @@ def main(data_path=None):
     print(f"  GINI: {metrics['frequency']['test']['gini']:.4f}")
     print(f"{'=' * 70}")
 
-    return df_final, freq, sev, metrics
+    return df_final, freq, sev, woe, best_grid, feature_cols
 
 
 if __name__ == "__main__":
